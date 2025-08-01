@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>United Hands Multipurpose Cooperative</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; background-color: #f4f4f9; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background: #920092; color: white; }
+    button { padding: 6px 12px; margin: 5px 0; border: none; border-radius: 5px; background-color: teal; color: white; }
+    button:hover { background-color: purple; }
+    input[type="text"], input[type="number"], input[type="date"] {
+      width: 100%; padding: 6px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc;
+    }
+    #searchInput { margin: 20px 0; }
+    .member-form-container {
+      background-color: #f8f9fa;
+      border: 2px solid teal;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    .member-form-container h3, .member-form-container h4 {
+      color: teal;
+      text-align: center;
+    }
+    .member-form-container form,
+    .member-form-container input[type="file"] {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .member-form-container button {
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      th, td { padding: 10px; }
+      td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>United Hands Multipurpose Cooperative</h2>
+
+  <div class="member-form-container">
+    <h3>Add New Member</h3>
+    <form id="addMemberForm">
+      <input type="text" id="name" placeholder="Full Name" required />
+      <input type="text" id="phone" placeholder="Phone Number" required />
+      <input type="text" id="accountNumber" placeholder="Account Number" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <input type="date" id="joinDate" required />
+      <input type="number" id="amount" placeholder="Amount (₦)" value="0" readonly />
+      <button type="submit">Add Member</button>
+      <h4 style="margin-top: 30px;">Upload Members (CSV)</h4>
+      <input type="file" id="csvFileInput" accept=".csv" />
+      <button onclick="uploadCSV()">Upload CSV</button>
+
+    </form> 
+  </div>
+
+  <input type="text" id="searchInput" placeholder="Search by name..." oninput="filterMembers()">
+
+  <table id="memberTable">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" /></th>
+        <th>S/N</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Account No</th>
+        <th>Date</th>
+        <th>Amount</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="memberBody"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;"><strong>Total Savings:</strong></td>
+        <td id="totalSavings"><strong>₦0</strong></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+  <a href="view-complaints.html">View Complaints</a>
+
+  <a href="view-registrations.html">View New Registrations</a>
+  
+  <br>
+  <br>
+
+  <button onclick="deleteSelected()">Delete Selected</button>
+  <button onclick="exportExcel()">Export Excel</button>
+  <button onclick="exportPDF()">Export PDF</button>
+  
+<div style="margin-top: 20px;">
+  <label for="dateInput"><strong>Select a date to view total savings:</strong></label>
+  <input type="date" id="dateInput" onchange="fetchDailyTotal()" />
+  <h3 id="dailyTotal">Total Saved: ₦0</h3>
+</div>
+
+<h3>Daily Credit Report</h3>
+<input type="date" id="creditDate" />
+<button onclick="fetchCreditsByDate()">View Credits</button>
+
+<div id="creditReport"></div>
+
+  <script>
+    let members = [];
+
+    function formatAmount(amount) {
+      return `₦${parseFloat(amount || 0).toLocaleString()}`;
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+
+    async function fetchMembers() {
+      try {
+        const response = await fetch('http://localhost:3001/api/members');
+        members = await response.json();
+        renderTable();
+        updateTotalSavings();
+      } catch (error) {
+        console.error('Failed to fetch members:', error);
+      }
+    }
+
+    function renderTable(filteredMembers = members) {
+      const tbody = document.getElementById("memberBody");
+      tbody.innerHTML = '';
+      filteredMembers.forEach((member, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><input type="checkbox" class="member-checkbox" value="${member.id}"></td>
+          <td>${index + 1}</td>
+          <td data-label="Name">${member.name}</td>
+          <td data-label="Phone">${member.phone}</td>
+          <td data-label="Account">${member.accountNumber}</td>
+          <td data-label="Date">${formatDate(member.joinDate)}</td>
+          <td data-label="Amount">${formatAmount(member.amount)}</td>
+          <td data-label="Action">
+            <button onclick="viewMember(${member.id})">View</button>
+            <button onclick="deleteMember(${member.id})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function updateTotalSavings() {
+      const total = members.reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+      document.getElementById('totalSavings').textContent = `₦${total.toLocaleString()}`;
+    }
+
+    function filterMembers() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const filtered = members.filter(m => m.name.toLowerCase().includes(query));
+      renderTable(filtered);
+    }
+
+    function viewMember(id) {
+      localStorage.setItem('viewingMemberId', id);
+      window.location.href = "view-member.html";
+    }
+
+    function deleteMember(id) {
+      if (!confirm("Are you sure you want to delete this member?")) return;
+
+      fetch(`http://localhost:3001/api/members/${id}`, {
+        method: 'DELETE'
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message || "Member deleted.");
+        fetchMembers();
+      })
+      .catch(err => {
+        console.error("Delete failed:", err);
+      });
+    }
+
+    function toggleSelectAll(source) {
+      const checkboxes = document.querySelectorAll('.member-checkbox');
+      checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    function deleteSelected() {
+      const selected = Array.from(document.querySelectorAll('.member-checkbox:checked'))
+                        .map(cb => parseInt(cb.value));
+
+      if (selected.length === 0) {
+        alert("Please select at least one member to delete.");
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to delete ${selected.length} member(s)?`)) return;
+
+      fetch('http://localhost:3001/api/members/delete-multiple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selected })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        fetchMembers();
+      })
+      .catch(err => {
+        console.error("Bulk delete failed:", err);
+        alert("Something went wrong while deleting.");
+      });
+    }
+
+    document.getElementById('addMemberForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+   const newMember = {
+  name: document.getElementById('name').value,
+  phone: document.getElementById('phone').value,
+  accountNumber: document.getElementById('accountNumber').value,
+  password: document.getElementById('password').value, // Add this line
+  joinDate: document.getElementById('joinDate').value,
+  amount: parseFloat(document.getElementById('amount').value),
+};
+
+
+    fetch('http://localhost:3001/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newMember)
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || `${newMember.name} added successfully!`);
+
+      // ✅ Send SMS after member is successfully added
+      fetch("http://localhost:3001/api/members/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: newMember.phone,
+          message: `Welcome to United Hands Cooperative! Your account has been successfully created. Your Account number is ${newMember.accountNumber}`
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("✅ SMS sent via backend:", data);
+      })
+      .catch(err => {
+        console.error("❌ SMS failed:", err);
+      });
+
+      fetchMembers();
+      this.reset();
+    })
+    .catch(error => {
+      console.error('Error saving member:', error);
+      alert("Error saving member");
+    });
+  });
+
+  
+  fetchMembers();
+
+    function uploadCSV() {
+  const fileInput = document.getElementById('csvFileInput');
+  const file = fileInput.files[0];
+  if (!file) return alert("Please select a CSV file.");
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  fetch('http://localhost:3001/api/members/upload', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message || "Upload complete.");
+    fetchMembers();
+  })
+  .catch(err => {
+    console.error("Upload error:", err);
+    alert("Upload failed.");
+  });
+}
+  function fetchDailyTotal() {
+  const selectedDate = document.getElementById("dateInput").value;
+  if (!selectedDate) return;
+
+  fetch(`http://localhost:3001/api/transactions/daily-total/${selectedDate}`)
+    .then(res => res.json())
+    .then(data => {
+      const total = data.total || 0;
+      document.getElementById("dailyTotal").textContent = `Total Saved: ₦${total.toLocaleString()}`;
+    })
+    .catch(err => {
+      console.error("Failed to fetch daily total:", err);
+      document.getElementById("dailyTotal").textContent = `Error fetching data.`;
+    });
+}
+
+  async function fetchCreditsByDate() {
+    const date = document.getElementById("creditDate").value;
+    if (!date) return alert("Please select a date");
+
+    try {
+      const res = await fetch(`http://localhost:3001/api/transactions/credits/${date}`);
+      const data = await res.json();
+
+      if (!Array.isArray(data)) throw new Error("Unexpected response");
+
+      let total = 0;
+      let html = "<h4>Credited Members</h4><table border='1'><tr><th>Name</th><th>Account Number</th><th>Amount</th></tr>";
+
+      data.forEach(row => {
+        html += `<tr><td>${row.name}</td><td>${row.accountNumber}</td><td>₦${parseFloat(row.amount).toLocaleString()}</td></tr>`;
+        total += parseFloat(row.amount);
+      });
+
+      html += `</table><p><strong>Total Saved:</strong> ₦${total.toLocaleString()}</p>`;
+      document.getElementById("creditReport").innerHTML = html;
+
+    } catch (err) {
+      console.error("Failed to fetch credits:", err.message);
+      alert("Error loading data.");
+    }
+  }
+
+    function exportExcel() {
+      const ws = XLSX.utils.json_to_sheet(members.map(m => ({
+        Name: m.name,
+        Phone: m.phone,
+        Account: m.accountNumber,
+        Date: formatDate(m.joinDate),
+        Balance: m.amount
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Members");
+      XLSX.writeFile(wb, "unitedhands_members.xlsx");
+    }
+
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("United Hands Members List", 10, 10);
+      let y = 20;
+      members.forEach((m, i) => {
+        doc.text(`${i + 1}. ${m.name}, ${m.phone}, Acc: ${m.accountNumber}, Date: ${formatDate(m.joinDate)}, ₦${m.amount.toLocaleString()}`, 10, y);
+        y += 8;
+      });
+      doc.save("unitedhands_members.pdf");
+    }
+
+    fetchMembers();
+  </script>
+</body>
+</html>

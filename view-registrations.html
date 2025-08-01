@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Member Registrations</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+
+    h2 {
+      color: #2c3e50;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      padding: 8px;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 8px;
+      margin-right: 10px;
+      border-radius: 5px;
+      background-color: rgb(2, 70, 70);
+      cursor: pointer;
+    }
+
+    button:hover {
+      padding: 8px;
+      margin-right: 10px;
+      background-color: rgb(92, 4, 114);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: teal;
+      color: white;
+    }
+
+    .reviewed {
+      background-color: #e0ffe0;
+    }
+
+    .delete-btn {
+      background-color: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .toggle-btn {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>New Member Registrations</h2>
+
+  <div class="controls">
+    <input type="text" id="searchInput" placeholder="Search by name or phone" />
+    <input type="date" id="filterDate" />
+    <button onclick="exportToExcel()">Export to Excel</button>
+    <button onclick="exportToPDF()">Export to PDF</button>
+  </div>
+
+  <table id="registrationTable">
+    <thead>
+      <tr>
+        <th>S/N</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Address</th>
+        <th>Email</th>
+        <th>Next of Kin</th>
+        <th>Next of Kin Phone</th>
+        <th>Date</th>
+        <th>Reviewed</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let registrations = [];
+
+    async function fetchRegistrations() {
+      try {
+        const res = await fetch("http://localhost:3001/api/registration");
+        registrations = await res.json();
+        renderTable();
+      } catch (err) {
+        console.error("Error loading registrations:", err);
+      }
+    }
+
+    function renderTable() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const filterDate = document.getElementById("filterDate").value;
+      const tbody = document.querySelector("#registrationTable tbody");
+      tbody.innerHTML = "";
+
+      const filtered = registrations.filter((r, i) => {
+        const matchSearch = r.name.toLowerCase().includes(search) || r.phone.includes(search);
+        const matchDate = filterDate ? r.created_at.startsWith(filterDate) : true;
+        return matchSearch && matchDate;
+      });
+
+      filtered.forEach((reg, index) => {
+        const row = document.createElement("tr");
+        if (reg.reviewed) row.classList.add("reviewed");
+
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${reg.name}</td>
+          <td>${reg.phone}</td>
+          <td>${reg.address}</td>
+          <td>${reg.email}</td>
+          <td>${reg.next_of_kin}</td>
+          <td>${reg.next_of_kin_phone}</td>
+          <td>${reg.created_at.split('T')[0]}</td>
+          <td><input type="checkbox" ${reg.reviewed ? "checked" : ""} onchange="toggleReviewed(${reg.id}, this.checked)"></td>
+          <td><button class="delete-btn" onclick="deleteRow(${reg.id})">Delete</button></td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+
+    function deleteRow(id) {
+      if (!confirm("Are you sure you want to delete this registration?")) return;
+      fetch(`http://localhost:3001/api/registration/${id}`, {
+        method: "DELETE"
+      }).then(() => {
+        registrations = registrations.filter(r => r.id !== id);
+        renderTable();
+      });
+    }
+
+    function toggleReviewed(id, reviewed) {
+      fetch(`http://localhost:3001/api/registration/${id}/reviewed`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewed })
+      }).then(() => fetchRegistrations());
+    }
+
+    function exportToExcel() {
+      const ws = XLSX.utils.json_to_sheet(registrations);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Registrations");
+      XLSX.writeFile(wb, "registrations.xlsx");
+    }
+
+    function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(12);
+      doc.text("New Member Registrations", 10, 10);
+      let y = 20;
+
+      registrations.forEach((r, i) => {
+        doc.text(`${i + 1}. ${r.name} - ${r.phone} - ${r.email}`, 10, y);
+        y += 7;
+      });
+
+      doc.save("registrations.pdf");
+    }
+
+    document.getElementById("searchInput").addEventListener("input", renderTable);
+    document.getElementById("filterDate").addEventListener("change", renderTable);
+
+    fetchRegistrations();
+  </script>
+</body>
+</html>

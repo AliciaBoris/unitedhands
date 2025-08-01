@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>United Hands Cooperative Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      background-color: #f0f8ff;
+      padding: 20px;
+    }
+
+    h1 {
+      color: teal;
+    }
+
+    #memberInfo p {
+      margin: 5px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+
+    th {
+      background-color: teal;
+      color: white;
+    }
+
+    button {
+      margin: 10px 10px 0 0;
+      padding: 10px 15px;
+      background-color: purple;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: teal;
+    }
+
+    /* Modal Styling */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 5px;
+      position: relative;
+    }
+
+    .close {
+      position: absolute;
+      right: 15px;
+      top: 10px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .complaint-btn {
+      padding: 10px 15px;
+      background-color: #1f703e;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.95em;
+        padding: 10px;
+      }
+
+      .modal-content {
+        width: 95%;
+      }
+
+      table th, table td {
+        font-size: 0.9em;
+        padding: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Member Dashboard</h1>
+
+  <div id="memberInfo">
+    <p>Loading member info...</p>
+  </div>
+
+  <button onclick="logout()">Logout</button>
+  <button id="openComplaintModal" class="complaint-btn">Submit a Complaint</button>
+
+  <!-- Complaint Modal -->
+  <div id="complaintModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeComplaintModal()">&times;</span>
+      <h2>Submit a Complaint</h2>
+      <form id="complaintForm">
+        <label for="complaintType">Type of Complaint:</label>
+        <select id="complaintType" required>
+          <option value="">-- Select Complaint --</option>
+          <option>CORRECTION OF NAME DETAILS</option>
+          <option>CORRECTION OF PHONE NUMBER</option>
+          <option>NON-REMITTANCE OF SAVINGS</option>
+          <option>INCORRECT ACCOUNT BALANCE</option>
+          <option>OTHERS</option>
+        </select>
+
+        <label for="details">Details:</label>
+        <textarea id="details" placeholder="Describe the issue..." required></textarea>
+
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  </div>
+
+  <h3>Statement of Account</h3>
+  <table id="statementTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Amount</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="exportToExcel()">Export to Excel</button>
+  <button onclick="exportToPDF()">Export to PDF</button>
+  <button onclick="window.print()">Print Statement</button>
+
+  <script>
+    const memberId = localStorage.getItem("memberId");
+
+    if (!memberId) {
+      alert("No member logged in.");
+      window.location.href = "login.html";
+    }
+
+    let member = null;
+
+    function logout() {
+      localStorage.removeItem("memberId");
+      window.location.href = "login.html";
+    }
+
+    function formatAmount(amount) {
+      return `₦${parseFloat(amount).toLocaleString()}`;
+    }
+
+    function exportToExcel() {
+      fetch(`http://localhost:3001/api/transactions/${member.id}`)
+        .then(res => res.json())
+        .then(data => {
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Statement");
+          XLSX.writeFile(wb, `${member.name.replace(/ /g, "_")}_statement.xlsx`);
+        });
+    }
+
+    function exportToPDF() {
+      fetch(`http://localhost:3001/api/transactions/${member.id}`)
+        .then(res => res.json())
+        .then(data => {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          doc.setFontSize(12);
+          doc.text(`Statement for ${member.name}`, 10, 10);
+          let y = 20;
+          data.forEach((t, i) => {
+            doc.text(
+              `${i + 1}. ${t.date} | ${t.type.toUpperCase()} | ₦${parseFloat(t.amount).toLocaleString()} | ${t.description || ''}`,
+              10,
+              y
+            );
+            y += 8;
+          });
+          doc.save(`${member.name.replace(/ /g, "_")}_statement.pdf`);
+        });
+    }
+
+    // Fetch member info and transactions
+    fetch(`http://localhost:3001/api/members/${memberId}`)
+      .then(res => res.json())
+      .then(data => {
+        member = data;
+
+        document.getElementById("memberInfo").innerHTML = `
+          <p><strong>Name:</strong> ${member.name}</p>
+          <p><strong>Phone:</strong> ${member.phone}</p>
+          <p><strong>Account Number:</strong> ${member.accountNumber}</p>
+          <p><strong>Current Balance:</strong> ₦${parseFloat(member.amount).toLocaleString()}</p>
+        `;
+
+        // Load transactions
+        return fetch(`http://localhost:3001/api/transactions/${member.id}`);
+      })
+      .then(res => res.json())
+      .then(transactions => {
+        const tbody = document.querySelector("#statementTable tbody");
+        tbody.innerHTML = "";
+
+        transactions.forEach(entry => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${entry.date}</td>
+            <td>${entry.type.toUpperCase()}</td>
+            <td>${formatAmount(entry.amount)}</td>
+            <td>${entry.description || ''}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      })
+      .catch(err => {
+        console.error("Error loading dashboard:", err);
+        alert("Failed to load dashboard. Try logging in again.");
+        logout();
+      });
+
+    // Complaint submission handler
+    document.getElementById("complaintForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const category = document.getElementById("complaintType").value;
+      const message = document.getElementById("details").value;
+
+      try {
+        const res = await fetch("http://localhost:3001/api/complaints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ memberId, category, message })
+        });
+
+        const data = await res.json();
+        alert(data.message || "Complaint submitted successfully.");
+        closeComplaintModal();
+        document.getElementById("complaintForm").reset();
+      } catch (err) {
+        console.error("Error submitting complaint:", err);
+        alert("There was an error submitting your complaint.");
+      }
+    });
+
+    function closeComplaintModal() {
+      document.getElementById("complaintModal").style.display = "none";
+    }
+
+    document.getElementById("openComplaintModal").addEventListener("click", () => {
+      document.getElementById("complaintModal").style.display = "flex";
+    });
+
+    document.querySelector(".close").addEventListener("click", closeComplaintModal);
+
+    window.onclick = function(event) {
+      const modal = document.getElementById("complaintModal");
+      if (event.target === modal) {
+        closeComplaintModal();
+      }
+    };
+  </script>
+</body>
+</html>

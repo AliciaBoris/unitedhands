@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>United Hands Cooperative</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      background-color: #f4f4f4;
+    }
+
+    header {
+      background-color: #00695c;
+      padding: 20px;
+      color: white;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    nav .logo {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    nav ul li a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .hero {
+      height: 70vh;
+      display: flex;
+      background-image: url("UHMCS-website-background-1.png");
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      color: rgb(255, 255, 255);
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(2, 39, 44, 0.5);
+    }
+
+    .hero h1,
+    .hero p {
+      z-index: 1;
+      color:rgb(233, 246, 248);
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+      color:rgb(245, 251, 252);
+    }
+
+    .hero p {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .login-buttons {
+      z-index: 1;
+    }
+
+    .login-buttons a {
+      text-decoration: none;
+      font-size: 16px;
+      padding: 24px 50px;
+      margin: 40px;
+      background-color: rgb(2, 52, 61);
+      color: white;
+      border-radius: 5px;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+
+    .login-buttons a:hover {
+      background-color: #059980;
+    }
+
+    section {
+      
+      padding: 40px 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    h2 {
+      color: #00695c;
+      margin-bottom: 15px;
+    }
+
+    footer {
+      background-color: #00695c;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 600px) {
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      nav ul {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .login-buttons a {
+        display: block;
+        width: 80%;
+        margin: 10px auto;
+      }
+    }
+     
+
+ /* Slider Styles */
+    .slider {
+      position: relative;
+      max-width: 100%;
+      height: 100px;
+      overflow: hidden;
+      margin-bottom: 2em;
+    }
+    .slides {
+      display: flex;
+      width: 300%;
+      animation: slide 60s infinite;
+    }
+    .slides img {
+      width: 100%;
+      height: 100%;
+    }
+    @keyframes slide {
+      0% { transform: translateX(0); }
+      33% { transform: translateX(-100%); }
+      66% { transform: translateX(-200%); }
+      100% { transform: translateX(0); }
+    }
+
+    .slider-wrapper {
+  position: relative;
+  max-width: 100%;
+  height: 100px;
+  overflow: hidden;
+  margin-bottom: 2em;
+}
+
+.slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.slides {
+  display: flex;
+  width: 100%;
+  transition: transform 0.5s ease-in-out;
+}
+
+.slides img {
+  width: 100%;
+  height: auto;
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0,0,0,0.5);
+  border: none;
+  color: white;
+  padding: 10px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.arrow.prev {
+  left: 10px;
+}
+
+.arrow.next {
+  right: 10px;
+}
+
+.testimonials {
+  background: #f1f1f1;
+  padding: 50px 20px;
+  text-align: center;
+}
+
+.testimonials h2 {
+  font-size: 1.5em;
+  margin-bottom: 30px;
+  color: #333;
+}
+
+.testimonial-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  max-width: 1000px;
+  margin: auto;
+}
+
+.testimonial-box {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  font-style: italic;
+  color: #444;
+}
+
+.testimonial-box h4 {
+  margin-top: 15px;
+  font-weight: bold;
+  color: #0073aa;
+}
+.testimonial-avatar {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin-bottom: 15px;
+}
+.responsive-center-image {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+  height: auto;
+  width: 70%;
+}
+  </style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <div class="logo">United Hands Cooperative</div>
+      <ul>
+        <li><a href="#about">About</a></li>
+        <li><a href="#packages">Member Packages</a></li>
+        <li><a href="#terms">Terms & Conditions</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Welcome to United Hands Cooperative</h1>
+    <p>Aiding your financial advancement… together we achieve more.</p>
+    <br>
+    <div class="login-buttons">
+      
+      <a href="login.html">Member Login</a>
+    </div>
+  </div>
+
+  <section id="about" class="container">
+    <div class="slider">
+      <div class="slides">
+        <img src="uhmcs-home.png" alt="Slide 1">
+        <img src="uhmcs-join-pic.png" alt="Slide 2">
+        <img src="uhmcs-mkt.png" alt="Slide 3">
+        <!-- Duplicate for seamless loop -->
+        <img src="uhmcs-home.png" alt="Slide 1">
+        <img src="uhmcs-join-pic.png" alt="Slide 2">
+        <img src="uhmcs-mkt.png" alt="Slide 3">
+        
+      </div>
+      <button class="arrow prev" onclick="moveSlide(-1)">&#10094;</button>
+      <button class="arrow next" onclick="moveSlide(1)">&#10095;</button>
+    </div>
+      </div>
+    </div>
+
+  <section id="about">
+    
+    <h2>About Us</h2>
+    <p>
+      United Hands Cooperative is a savings and loan organization dedicated to helping members achieve financial stability through structured thrift contributions. We prioritize transparency, accountability, and member-focused services.
+    
+    <br>
+    <p>WHO WE ARE:
+      We are a multipurpose co-operative society established with the aim of bringing together and
+      coordinating likeminded people in order to encourage them to save their finances, invest wisely
+      and organize a pool of private funds which will serve as a reliable source of credit and
+      investment opportunities for members. UNITED HANDS MULTIPURPOSE CO-OPERATIVE
+      SOCIETY is licensed by the Abuja Municipal Area Council (AMAC) F.C.T under the Cooperative
+      Societies Act 2013 as Amended.</p> 
+    <p> 
+     <a href="PAGES/about-united-hands.html" >Learn More</a>
+    </p>
+  </section>
+
+  <section id="packages">
+    <h2>Member Packages</h2>
+    <p>
+      We offer flexible savings plans and loan options tailored to your financial goals. Whether you're saving for business, education, or personal needs, our packages are designed to support you.
+    <a href="pages/member-packages.html">See More</a>
+    </p>
+   <br>
+   <br>
+    <button onclick="window.location.href='become-member.html'" style="padding: 20px 30px; cursor: pointer; background-color: teal; color: white; font-size: 16px; border-radius: 5px;">
+  Become a Member
+</button>
+
+  </section>
+
+  <section id="terms">
+    <h2>Terms & Conditions</h2>
+    <p>
+      By joining United Hands Cooperative, you agree to our operational guidelines including regular savings, responsible borrowing, and respectful engagement with other members. Detailed terms are available on request.
+    </p>
+  </section>
+  
+  <section class="testimonials">
+    <h2>What Our Members Are Saying</h2>
+    <div class="testimonial-container">
+      <div class="testimonial-box">
+        <img src="testimonial-pic 2.png" alt="Abdullahi S." class="testimonial-avatar">
+        <p>"United Hands Cooperative has really helped by business by encouraging daily savings. At the end of the year I found out that I had made more money than I could imagine."</p>
+        <h4>— Abdullahi S, Trader</h4>
+      </div>
+      <div class="testimonial-box">
+        <img src="testimonial-pic 4.png" alt="Rukayatu O." class="testimonial-avatar">
+        <p>"I joined United Hands in 2020 through a neighbour. Since then I have become more financially disciplined than before and there has been a steady growth in my business."</p>
+        <h4>— Funmi O., Small Business Owner</h4>
+      </div>
+      <div class="testimonial-box">
+        <img src="testimonial-pic 1.png" alt="Patrick A." class="testimonial-avatar">
+        <p>"I love the fact that United Hands staff reduce stress for me by bringing their services to my doorstep. They also delivered on their promise to give me loans with stress-free repayment plans"</p>
+        <h4>— Patrick A., Real Estate Agent</h4>
+      </div>
+    </div>
+  </section>
+
+  <section>
+  <div class="login-buttons">
+      <a href="admin-login.html">Admin Login</a>
+  </div>
+    </section>
+
+  <footer>
+    &copy; 2025 United Hands Cooperative. All rights reserved.
+  </footer>
+
+</body>
+</html>

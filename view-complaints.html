@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - View Complaints</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #eef;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #030005;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid #aaa;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #044d5f;
+      color: white;
+    }
+
+    tr.attended {
+      background-color: #e0ffe0;
+    }
+
+    .controls {
+      margin-bottom: 10px;
+    }
+
+    .controls label,
+    .controls select,
+    .controls input {
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 8px 12px;
+      margin-right: 10px;
+      border: none;
+      background-color: #a202b1;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #008080;
+    }
+
+    .toggle-btn {
+      cursor: pointer;
+      color: rgb(88, 5, 143);
+      text-decoration: underline;
+    }
+
+    .delete-btn {
+      background-color: red;
+    }
+  </style>
+</head>
+<body>
+  <h1>Submitted Complaints</h1>
+
+  <div class="controls">
+    <label for="categoryFilter">Filter by Category:</label>
+    <select id="categoryFilter">
+      <option value="">All</option>
+      <option>Correction of Name details</option>
+      <option>Correction of Phone number</option>
+      <option>Non-remittance of savings</option>
+      <option>Incorrect Account Balance</option>
+      <option>Others</option>
+    </select>
+
+    <label for="dateFilter">Filter by Date:</label>
+    <input type="date" id="dateFilter" />
+
+    <button onclick="applyFilters()">Filter</button>
+    <button onclick="exportToExcel()">Export to Excel</button>
+    <button onclick="exportToPDF()">Export to PDF</button>
+    <button onclick="deleteSelected()" class="delete-btn">Delete Selected</button>
+  </div>
+
+  <table id="complaintsTable">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAll" onchange="toggleAll(this)"/></th>
+        <th>Date</th>
+        <th>Name</th>
+        <th>Account Number</th>
+        <th>Category</th>
+        <th>Message</th>
+        <th>Status</th>
+        <th>Toggle</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let allComplaints = [];
+
+    async function fetchComplaints() {
+      try {
+        const res = await fetch("http://localhost:3001/api/complaints");
+        const data = await res.json();
+        allComplaints = data;
+        renderTable(data);
+      } catch (err) {
+        console.error("Error fetching complaints:", err);
+      }
+    }
+
+    function renderTable(complaints) {
+      const tbody = document.querySelector("#complaintsTable tbody");
+      tbody.innerHTML = "";
+
+      complaints.forEach((c, i) => {
+        const tr = document.createElement("tr");
+        if (c.attended) tr.classList.add("attended");
+
+        tr.innerHTML = `
+          <td><input type="checkbox" data-id="${c.id}"/></td>
+          <td>${new Date(c.created_at).toLocaleDateString()}</td>
+          <td>${c.name}</td>
+          <td>${c.accountNumber}</td>
+          <td>${c.category}</td>
+          <td>${c.message}</td>
+          <td>${c.attended ? "Attended" : "Pending"}</td>
+          <td><span class="toggle-btn" onclick="toggleAttended(${c.id})">${c.attended ? "Mark Pending" : "Mark Attended"}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function applyFilters() {
+      const category = document.getElementById("categoryFilter").value;
+      const date = document.getElementById("dateFilter").value;
+
+      const filtered = allComplaints.filter(c => {
+        const matchCategory = category ? c.category === category : true;
+        const matchDate = date ? c.created_at.startsWith(date) : true;
+        return matchCategory && matchDate;
+      });
+
+      renderTable(filtered);
+    }
+
+    function toggleAll(checkbox) {
+      document.querySelectorAll("#complaintsTable tbody input[type='checkbox']")
+        .forEach(cb => cb.checked = checkbox.checked);
+    }
+
+    async function toggleAttended(id) {
+      try {
+        const res = await fetch(`http://localhost:3001/api/complaints/${id}/toggle`, {
+          method: "PUT"
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetchComplaints();
+        } else {
+          alert("Failed to update status");
+        }
+      } catch (err) {
+        console.error("Toggle error:", err);
+      }
+    }
+
+    async function deleteSelected() {
+      const selected = Array.from(document.querySelectorAll("tbody input[type='checkbox']:checked"))
+        .map(cb => cb.dataset.id);
+
+      if (selected.length === 0) {
+        alert("No complaints selected.");
+        return;
+      }
+
+      if (!confirm("Delete selected complaints?")) return;
+
+      try {
+        const res = await fetch("http://localhost:3001/api/complaints/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: selected })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetchComplaints();
+        }
+      } catch (err) {
+        console.error("Delete error:", err);
+      }
+    }
+
+    function exportToExcel() {
+      const wb = XLSX.utils.book_new();
+      const sheetData = allComplaints.map(c => ({
+        Date: new Date(c.created_at).toLocaleDateString(),
+        Name: c.name,
+        Account: c.accountNumber,
+        Category: c.category,
+        Message: c.message,
+        Status: c.attended ? "Attended" : "Pending"
+      }));
+      const ws = XLSX.utils.json_to_sheet(sheetData);
+      XLSX.utils.book_append_sheet(wb, ws, "Complaints");
+      XLSX.writeFile(wb, "Complaints.xlsx");
+    }
+
+    function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(10);
+      doc.text("Complaints Report", 10, 10);
+      let y = 20;
+
+      allComplaints.forEach((c, i) => {
+        doc.text(`${i + 1}. ${new Date(c.created_at).toLocaleDateString()} | ${c.name} | ${c.accountNumber} | ${c.category} | ${c.message} | ${c.attended ? "Attended" : "Pending"}`, 10, y);
+        y += 8;
+        if (y > 280) {
+          doc.addPage();
+          y = 10;
+        }
+      });
+
+      doc.save("Complaints.pdf");
+    }
+
+    fetchComplaints();
+  </script>
+</body>
+</html>

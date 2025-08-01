@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>View Member</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      margin: 20px;
+      background: #f7f7f7;
+    }
+    .container {
+      max-width: 600px;
+      margin: 2% auto;
+      background-color:#e9c5e9;
+      padding: 50px;
+      border-radius: 10px;
+      box-shadow: 15 20 50px rgba(31, 30, 30, 0.1);
+    }
+    label, select, input, textarea {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select, textarea {
+      padding: 8px;
+      width: 95%;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: rgb(124, 7, 170);
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: rgb(226, 9, 9);
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    #balance {
+      color: green;
+      font-weight: bold;
+    }
+    .toggle-btn {
+      margin-top: 10px;
+      padding: 6px 12px;
+      font-weight: bold;
+    }
+    .on { background-color: green; color: white; }
+    .off { background-color: red; color: white; }
+    table {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+    }
+    th { background-color: #0d6568; color: white; }
+    .export-btn {
+      margin: 10px 5px 0 0;
+      background: #007bff;
+      color: #fff;
+    }
+    .edit-form {
+      background: #fff;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+    .reverse-btn {
+  background-color: rgb(179, 8, 8);
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.reverse-btn:hover {
+  background-color: rgb(241, 14, 14);
+}
+.reversed-row {
+  background-color: #ffe6e6 !important;
+  color: darkred;
+  font-style: italic;
+}
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>Member Information</h2>
+    <div id="memberInfo"></div>
+
+    <button onclick="toggleEdit()">Edit Profile</button>
+
+    <div class="edit-form" id="editForm">
+      <label>Edit Name:</label>
+      <input type="text" id="editName" />
+      <label>Edit Phone:</label>
+      <input type="text" id="editPhone" />
+      <label>Edit Account Number:</label>
+      <input type="text" id="editAccountNumber" />
+      <button onclick="submitEdit()">Save Changes</button>
+    </div>
+
+    <label>Transaction Type:</label>
+    <select id="transactionType">
+      <option value="credit">Credit (Add Savings)</option>
+      <option value="debit">Debit (Withdraw Savings)</option>
+    </select>
+
+    <label>Enter Amount:</label>
+    <input type="number" id="transactionAmount" />
+
+    <label>Description (optional):</label>
+    <textarea id="transactionDescription" rows="2"></textarea>
+
+    <label>Select Date:</label>
+    <input type="date" id="transactionDate" />
+
+    <button onclick="processTransaction()">Submit</button>
+    <button id="smsToggle" class="toggle-btn on" onclick="toggleSMS()">SMS: ON</button>
+  </div>
+
+  <div class="container">
+    <h3>Statement of Account</h3>
+    <table id="statementTable">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Type</th>
+      <th>Amount</th>
+      <th>Description</th>
+      <th>Action</th> <!-- ✅ Add this -->
+    </tr>
+  </thead>
+  <tbody></tbody>
+  <tfoot>
+    <tr>
+      <td colspan="4" style="border:none;"><strong>Total:</strong></td>
+      <td id="totalAmount" style="border:none;"><strong>₦0</strong></td>
+    </tr>
+  </tfoot>
+</table>
+
+
+    <button class="export-btn" onclick="exportToExcel()">Export to Excel</button>
+    <button class="export-btn" onclick="exportToPDF()">Export to PDF</button>
+  </div>
+
+  <script>
+    const memberId = localStorage.getItem('viewingMemberId');
+    let member = {};
+    let smsEnabled = true;
+
+    function formatAmount(amount) {
+      return `₦${parseFloat(amount).toLocaleString()}`;
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+
+
+         async function fetchMember() {
+      const res = await fetch(`http://localhost:3001/api/members/${memberId}`);
+      member = await res.json();
+      displayMember();
+      fetchTransactions();
+    }
+
+    function displayMember() {
+      document.getElementById("memberInfo").innerHTML = `
+        <p><strong>Name:</strong> ${member.name}</p>
+        <p><strong>Phone:</strong> ${member.phone}</p>
+        <p><strong>Account Number:</strong> ${member.accountNumber}</p>
+        <p><strong>Date of Membership:</strong> ${formatDate(member.joinDate)}</p>
+        <p><strong>Current Balance:</strong> <span id="balance">${formatAmount(member.amount)}</span></p>
+      `;
+
+      // Pre-fill edit form
+      document.getElementById('editName').value = member.name;
+      document.getElementById('editPhone').value = member.phone;
+      document.getElementById('editAccountNumber').value = member.accountNumber;
+    }
+
+    function toggleEdit() {
+      const form = document.getElementById('editForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function submitEdit() {
+      const updated = {
+        name: document.getElementById('editName').value,
+        phone: document.getElementById('editPhone').value,
+        accountNumber: document.getElementById('editAccountNumber').value
+      };
+
+      fetch(`http://localhost:3001/api/members/${member.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Update failed");
+        return res.json();
+      })
+      .then(data => {
+        alert(data.message || "Profile updated.");
+        fetchMember();
+        document.getElementById('editForm').style.display = 'none';
+      })
+      .catch(err => {
+        console.error("Edit failed:", err);
+        alert("Member update failed.");
+      });
+    }
+
+    function toggleSMS() {
+      smsEnabled = !smsEnabled;
+      const btn = document.getElementById("smsToggle");
+      btn.textContent = `SMS: ${smsEnabled ? "ON" : "OFF"}`;
+      btn.className = `toggle-btn ${smsEnabled ? "on" : "off"}`;
+    }
+
+function sendSMS(phone, name, type, amount, balance) {
+  const message = `Hi ${name}, ₦${amount.toLocaleString()} ${type === 'credit' ? 'credited' : 'debited'}. Bal: ₦${balance.toLocaleString()} UnitedHands.`
+
+  fetch("http://localhost:3001/api/members/send-sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, message })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("✅ SMS sent via backend:", data);
+  })
+  .catch(err => {
+    console.error("❌ SMS error:", err);
+  });
+}
+
+    function processTransaction() {
+      const type = document.getElementById('transactionType').value;
+      const amount = parseFloat(document.getElementById('transactionAmount').value);
+      const dateInput = document.getElementById('transactionDate').value;
+      const description = document.getElementById('transactionDescription').value;
+      const current = parseFloat(member.amount || 0);
+
+      if (isNaN(amount) || amount <= 0) return alert("Enter a valid amount.");
+      if (!dateInput) return alert("Select a date.");
+      if (type === "debit" && amount > current) return alert("Insufficient funds.");
+
+      fetch("http://localhost:3001/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberId: member.id,
+          type,
+          amount,
+          date: dateInput,
+          description
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+  alert(data.message || "Transaction saved.");
+  fetchMember();
+  if (smsEnabled && data.newBalance !== undefined) {
+    sendSMS(member.phone, member.name, type, amount, data.newBalance);
+  }
+});
+
+    }
+
+   async function fetchTransactions() {
+  const res = await fetch(`http://localhost:3001/api/transactions/${member.id}`);
+  const transactions = await res.json();
+  const tbody = document.querySelector("#statementTable tbody");
+  tbody.innerHTML = "";
+
+  let total = 0;
+
+  transactions.forEach(entry => {
+    total += entry.type === 'credit' ? parseFloat(entry.amount) : -parseFloat(entry.amount);
+
+    const isReversal = entry.description && entry.description.toLowerCase().includes("reversal");
+    const row = document.createElement("tr");
+    if (isReversal) row.classList.add("reversed-row");
+
+    row.innerHTML = `
+      <td>${formatDate(entry.date)}</td>
+      <td>${entry.type.toUpperCase()}</td>
+      <td>${formatAmount(entry.amount)}</td>
+      <td>${entry.description || ''}</td>
+      <td><button class="reverse-btn" onclick="reverseTransaction(${entry.id}, '${entry.type}', ${entry.amount}, '${entry.description || ''}')">Reverse</button></td>
+    `;
+
+    tbody.appendChild(row);
+  });
+
+  document.getElementById("totalAmount").textContent = formatAmount(total);
+}
+
+
+function reverseTransaction(originalId, originalType, amount, description) {
+  if (!confirm("Are you sure you want to reverse this transaction?")) return;
+
+  const reversedType = originalType === 'credit' ? 'debit' : 'credit';
+
+  fetch("http://localhost:3001/api/transactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      memberId: member.id,
+      type: reversedType,
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      description: `Reversal of: ${description}`
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("Transaction reversed.");
+    fetchMember(); // Refresh balance
+  })
+  .catch(err => {
+    console.error("Reversal failed:", err);
+    alert("Failed to reverse transaction.");
+  });
+}
+
+    function exportToExcel() {
+      fetch(`http://localhost:3001/api/transactions/${member.id}`)
+        .then(res => res.json())
+        .then(history => {
+          const ws = XLSX.utils.json_to_sheet(history.map(tx => ({
+            Date: formatDate(tx.date),
+            Type: tx.type.toUpperCase(),
+            Amount: tx.amount,
+            Description: tx.description || ''
+          })));
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Statement");
+          XLSX.writeFile(wb, `${member.name.replace(/ /g, "_")}_statement.xlsx`);
+        });
+    }
+
+    function exportToPDF() {
+      fetch(`http://localhost:3001/api/transactions/${member.id}`)
+        .then(res => res.json())
+        .then(history => {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          doc.text(`Statement of Account for ${member.name}`, 10, 10);
+          let y = 20;
+          history.forEach(entry => {
+            doc.text(`${formatDate(entry.date)} | ${entry.type.toUpperCase()} | ₦${parseFloat(entry.amount).toLocaleString()} | ${entry.description || ''}`, 10, y);
+            y += 10;
+          });
+          doc.text(`Total Balance: ${formatAmount(member.amount)}`, 10, y + 10);
+          doc.save(`${member.name.replace(/ /g, "_")}_statement.pdf`);
+        });
+    }
+
+    fetchMember();
+  </script>
+</body>
+</html>
